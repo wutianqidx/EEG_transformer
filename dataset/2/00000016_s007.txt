@@ -1,0 +1,24 @@
+History:	28 YR OLD FEMALE WITH STATUS ELECTROGRAPHIC SEIZURES.
+Medications:	ATIVAN 2MG IV PUSH, LAMICTAL, KEPPRA
+Sedation:
+EEG Type:	Awake & asleep, portable
+Technique:	International 10-20 System; standard 21 electrodes with T1/T2 electrodes and EKG
+electrodes
+Description:
+Waking background is characterized by at best a 7HZ alpha rhythm.  Symmetric 5-15uV, 18-25Hz
+activity is present, maximal over bilateral frontal regions.  During drowsiness, the background slows
+to central theta activity, frontal beta activity becomes more prominent, and the alpha rhythm
+attenuates and becomes intermittent.  As drowsiness progresses, symmetric vertex waves appear.
+Continuous rhythmic delta activity is present in the left midtemporal region during wakefulness,
+increasing during drowsiness.  Frequent focal spikes are present with phase reversal and amplitude
+maximum at C3/P3. At times in 1Hz bursts for seconds.  Multiple O2 electrographic seizures
+occurring for ~3 minutes. The appear to remain posteriorly with minimal spread. There is no
+clinical correlate. They begin with spiky theta discharged minimally spreads centrally.
+Hyperventilation is performed for 240 seconds with good cooperation, and produces no effect.  HR
+Summary of Findings:
+Seizure, frequent, right posterior
+Spikes, frequent, left central
+Diffuse slowing, polymorphic, continuous
+Interpretation:
+This is a NORMAL EEG, awake, drowsy, and asleep.
+
