@@ -5,23 +5,22 @@ import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
-from data import EegDataset, PackCollate
-from model import EegTransformer, loss_func
+from data import EEGDataset, collate_wrapper
+from model import EEGtoReport, EEGTransformer, loss_func
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=1, help='Number of epochs for training')
-    parser.add_argument('--batch_size', type=int, default=1, help="Batch size (default=32)")
+    parser.add_argument('--batch_size', type=int, default=2, help="Batch size (default=32)")
     args = parser.parse_args()
     args.learning_rate = 0.001
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.seed = 1337
-    np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     return args
 
 def run_training(args, dataset, train_loader):
-    model = EegTransformer()
+    model = EEGtoReport()
     optimizer = optim.Adam(
         model.parameters(),
         lr=args.learning_rate
@@ -30,17 +29,21 @@ def run_training(args, dataset, train_loader):
     model = model.to(args.device)
     model.train()
     for epoch in range(args.epochs):
-        for batch_ndx, (sample, target) in enumerate(train_loader):
-            output = model(sample)
-            loss = loss_func(output, target)
+        for batch_ndx, (input, target, len) in enumerate(train_loader):
+            print("input", input)
+            print("target", target)
+            print("len", len)
+            output = model(input, target, len)
+            # loss = loss_func(output, target)
+            #
+            # optimizer.zero_grad()
+            # loss.backward()
+            # optimizer.step()
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
 
 def main(args):
-    dataset = EegDataset("eeg_text.pkl")
-    train_loader = DataLoader(dataset, batch_size=args.batch_size, drop_last=True, collate_fn=PackCollate(), shuffle=True)
+    dataset = EEGDataset("eeg_text.pkl")
+    train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=collate_wrapper)
     run_training(args, dataset, train_loader)
 
 if __name__ == '__main__':
