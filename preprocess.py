@@ -5,6 +5,33 @@ import pickle
 import argparse
 from glob import glob
 import pyedflib
+from collections import defaultdict
+
+import nltk
+# from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+# from nltk.stem.snowball import SnowballStemmer
+# from nltk.stem import WordNetLemmatizer
+# import re
+
+# def preprocess(text):
+#     stop_words = set(stopwords.words('english'))
+#     stemmer = SnowballStemmer('english')
+#     # covert text to lower case
+#     text = text.lower()
+#     text = re.sub(r'[^a-z]+', ' ', text)
+
+#     # remove whitespace
+#     text = text.strip()
+#     # tokenize
+#     token = word_tokenize(text)
+
+#     # remove stop words
+#     filtered = [i for i in token if not i in stop_words]
+#     # stemming
+#     stem = [stemmer.stem(i) for i in filtered]
+
+#     return stem
 
 def preprocess(file_path):
     """Preprocess files in file_path
@@ -15,7 +42,7 @@ def preprocess(file_path):
     [(eeg, report), ...], word_bag, unified frequency
     """
     data = []
-    word_bag = dict()
+    word_bag = defaultdict(int)
     freq = 250
     for dir in os.listdir(file_path):
         dir = os.path.join(file_path, dir)
@@ -27,6 +54,7 @@ def preprocess(file_path):
         eeg_raw, freq_raw = read_edf(edf_f_list)
 
         eeg = resize_eeg(eeg_raw, freq_raw, freq)
+        # eeg = None
 
         data.append((eeg, report))
     return data, word_bag, freq
@@ -44,11 +72,50 @@ def parse_txt(txt_f, word_bag):
     [IMPRESSION, DESCRIPTION OF THE RECORD]
     """
     f = open(txt_f, "r")
-    # print(f.read())
-    # print(type(f.read()))
+    lines = f.readlines()
+    #print(lines)
+    #print(type(lines))
     # TO DO:
 
-    return ['','']
+    
+    impression_prefix = 'IMPRESSION:'
+    impression = ''
+    impression_flag = False
+
+    description_prefix = 'DESCRIPTION OF THE RECORD:'
+    description = ''
+
+    clinical_prefix = 'CLINICAL CORRELATION:'
+
+    for line in lines:
+    	line = line.lstrip()
+    	line = line.rstrip()
+    	if line.startswith(description_prefix):
+    		description = line
+    	elif line.startswith(impression_prefix):
+    		impression_flag = True
+    	elif line.startswith(clinical_prefix):
+    		impression_flag = False
+
+    	if impression_flag:
+    		impression += line + ' '
+
+    description = description[len(description_prefix):]
+    impression = impression[len(impression_prefix):]
+
+    description_token = word_tokenize(description.lower())
+    impression_token = word_tokenize(impression.lower())
+
+    for token in description_token:
+    	word_bag[token] += 1
+
+    for token in impression_token:
+    	word_bag[token] += 1
+
+    # print(description_token)
+    # print(impression_token)
+    # print(word_bag)
+    return [impression, description]
 
 def read_edf(edf_f_list):
     """TO DO: read EEG recording and calculate value for each channel
