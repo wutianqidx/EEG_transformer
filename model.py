@@ -70,7 +70,7 @@ class PositionalEncoding(nn.Module):
         pass
 
 class EEGTransformer(nn.Module):
-    def __init__(self, ntoken, ninp = 512, nhead = 8, nlayers = 6):
+    def __init__(self, ninp = 512, nhead = 8, nlayers = 6):
         super().__init__()
         #encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8)
         # self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=6)
