@@ -59,23 +59,30 @@ class EEGEncoder(nn.Module):
     def forward(self, input):
         eeg_embedding = None
         return eeg_embedding
-        
+
 class PositionalEncoding(nn.Module):
     def __init__(self):
         pass
     def forward(self, eeg_embedding, len):
+        """Return: torch.tensor((S,N,E)), where S is the sequence length, N is the batch size, E is the feature number
+        E.g. eeg_embedding, len = torch.tensor(5, 512), (1,4) -> torch.tensor(4, 2, 512) padding with 0 and then do positional encoding
+        torch.split may be helpful
+        """
         pass
 
 class EEGTransformer(nn.Module):
     def __init__(self):
         super().__init__()
-        self.transformer = nn.Transformer()
+        encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=6)
+        decoder_layer = nn.TransformerDecoderLayer(d_model=512, nhead=8)
+        self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=6)
 
 
     def forward(self, input, target, len):
         """E.g. input, target, len:"""
-        input = torch.randn(5, 512)
+        input = torch.randn(4, 2, 512) # (S,N,E)
         target = (torch.tensor([[0,0,1,0], [1,0,0,0], [0,1,0,0]]), torch.tensor([[0,1,0,0], [0,0,1,0]]))
-        len = (2, 3)
+        len = (1, 4)
         word_embedding = None
         return word_embedding
