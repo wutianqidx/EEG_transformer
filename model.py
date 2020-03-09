@@ -1,4 +1,3 @@
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,10 +11,12 @@ class EEGtoReport(nn.Module):
     def __init__(self):
         super().__init__()
         self.eeg_encoder = EEGEncoder()
+        self.pos_encoder = PositionalEncoding()
         self.eeg_transformer = EEGTransformer()
 
     def forward(self, input, target, len):
         eeg_embedding = self.eeg_encoder(input)
+        eeg_embedding = self.pos_encoder(eeg_embedding, len)
         word_embedding = self.eeg_transformer(eeg_embedding, target, len)
         return word_embedding
 
@@ -70,7 +71,7 @@ class PositionalEncoding(nn.Module):
         pass
 
 class EEGTransformer(nn.Module):
-    def __init__(self, ninp = 512, nhead = 8, nlayers = 6):
+    def __init__(self, ntoken, ninp = 512, nhead = 8, nlayers = 6):
         super().__init__()
         #encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8)
         # self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=6)
@@ -79,7 +80,6 @@ class EEGTransformer(nn.Module):
 
         self.model_type = 'Transformer'
         self.padding_mask = None
-        self.pos_encoder = PositionalEncoding()
 
         # Encoder
         encoder_layers = nn.TransformerEncoderLayer(d_model=ninp, nhead=nhead)
@@ -105,7 +105,6 @@ class EEGTransformer(nn.Module):
         padding_mask = self._generate_src_padding_mask(src, N, S).to(device)
         self.padding_mask = padding_mask
 
-        src = self.pos_encoder(src, len)
         memory = self.transformer_encoder(src, src_key_padding_mask=self.padding_mask)
         word_embedding = self.transformer_decoder(target, memory)
         return word_embedding
