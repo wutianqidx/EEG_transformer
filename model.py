@@ -11,10 +11,12 @@ class EEGtoReport(nn.Module):
     def __init__(self):
         super().__init__()
         self.eeg_encoder = EEGEncoder()
+        self.pos_encoder = PositionalEncoding()
         self.eeg_transformer = EEGTransformer()
 
     def forward(self, input, target, len):
         eeg_embedding = self.eeg_encoder(input)
+        eeg_embedding = self.pos_encoder(eeg_embedding, len)
         word_embedding = self.eeg_transformer(eeg_embedding, target, len)
         return word_embedding
 
@@ -57,6 +59,12 @@ class EEGEncoder(nn.Module):
     def forward(self, input):
         eeg_embedding = None
         return eeg_embedding
+        
+class PositionalEncoding(nn.Module):
+    def __init__(self):
+        pass
+    def forward(self, eeg_embedding, len):
+        pass
 
 class EEGTransformer(nn.Module):
     def __init__(self):
