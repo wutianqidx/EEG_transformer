@@ -5,6 +5,7 @@ import pickle
 import argparse
 from glob import glob
 import pyedflib
+import string
 from collections import defaultdict
 
 import nltk
@@ -12,7 +13,7 @@ import nltk
 from nltk.tokenize import word_tokenize
 # from nltk.stem.snowball import SnowballStemmer
 # from nltk.stem import WordNetLemmatizer
-# import re
+import re
 
 # def preprocess(text):
 #     stop_words = set(stopwords.words('english'))
@@ -50,11 +51,11 @@ def preprocess(file_path):
         txt_f = glob(dir+"/*.txt")[0]
         report = parse_txt(txt_f, word_bag)
 
-        edf_f_list = glob(dir+"/*.edf")
-        eeg_raw, freq_raw = read_edf(edf_f_list)
+        # edf_f_list = glob(dir+"/*.edf")
+        # eeg_raw, freq_raw = read_edf(edf_f_list)
 
-        eeg = resize_eeg(eeg_raw, freq_raw, freq)
-        # eeg = None
+        # eeg = resize_eeg(eeg_raw, freq_raw, freq)
+        eeg = None
 
         data.append((eeg, report))
     return data, word_bag, freq
@@ -62,7 +63,7 @@ def preprocess(file_path):
 def parse_txt(txt_f, word_bag):
     """TO DO: parse report IMPRESSION & DESCRIPTION OF THE RECORD as string list, update word bag
 
-    Some keywords are Summary of Findings & Description, not IMPRESSION & DESCRIPTION OF THE RECORD. We should consider that later.
+    Some keywords are Summary of Findings (Interpretation) & Description, not IMPRESSION & DESCRIPTION OF THE RECORD. We should consider that later.
     "In addition, we also process the reports by tokenizing and converting to lower-cases."  --EEGtoText: Learning to Write Medical Reports from EEG Recordings
 
     Arg:
@@ -77,6 +78,9 @@ def parse_txt(txt_f, word_bag):
     #print(type(lines))
     # TO DO:
 
+
+    ### IMPRESSION has several lines
+    ### DESCRIPTION OF THE RECORD is one lines
     
     impression_prefix = 'IMPRESSION:'
     impression = ''
@@ -100,11 +104,50 @@ def parse_txt(txt_f, word_bag):
     	if impression_flag:
     		impression += line + ' '
 
+
+    ### Interpretation and Description are several lines
+
+
+    if description == '':
+    	impression_prefix = 'Interpretation:'
+    	impression_flag = False
+
+    	description_prefix = 'Description:'
+    	description_flag = False
+
+    	summary_prefix = 'Summary of Findings:'
+
+    	for line in lines:
+	    	line = line.lstrip()
+	    	line = line.rstrip()
+	    	if line.startswith(description_prefix):
+	    		description_flag = True
+	    	elif line.startswith(impression_prefix):
+	    		impression_flag = True
+	    	elif line.startswith(summary_prefix):
+	    		description_flag = False
+
+	    	if impression_flag:
+	    		impression += line + ' '
+
+	    	if description_flag:
+	    		description += line + ' '
+
+
     description = description[len(description_prefix):]
     impression = impression[len(impression_prefix):]
 
-    description_token = word_tokenize(description.lower())
-    impression_token = word_tokenize(impression.lower())
+    description = description.lower()
+    impression = impression.lower()
+
+    description = re.sub(r'[^\w\s]', ' <sep> ', description)
+    impression = re.sub(r'[^\w\s]', ' <sep> ', impression)
+
+    description_token = description.split()
+    impression_token = impression.split()
+
+    description_token.append('<end>')
+    impression_token.append('<end>')
 
     for token in description_token:
     	word_bag[token] += 1
@@ -112,10 +155,12 @@ def parse_txt(txt_f, word_bag):
     for token in impression_token:
     	word_bag[token] += 1
 
+
     # print(description_token)
     # print(impression_token)
     # print(word_bag)
-    return [impression, description]
+    # print()
+    return [impression_token, description_token]
 
 def read_edf(edf_f_list):
     """TO DO: read EEG recording and calculate value for each channel
