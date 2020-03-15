@@ -67,7 +67,10 @@ def read_edf(edf_f_list):
             'EEG FP2-REF', 'EEG F8-REF', 'EEG T4-REF', 'EEG T6-REF', 'EEG O2-REF'
     """
     eeg_raw = []
+    freq_raw = 0
     for edf_f in edf_f_list:
+        # flag for valid 18 channels existance
+        valid_flag = True
         f = pyedflib.EdfReader(edf_f)
         # # print("birthdate patientname technician", len(f.birthdate), f.birthdate, f.patientname, f.technician)
         # #print("getFileDuration(self)", f.getFileDuration())
@@ -85,19 +88,39 @@ def read_edf(edf_f_list):
                     'EEG FZ-REF', 'EEG CZ-REF', 'EEG PZ-REF',
                     'EEG FP2-REF', 'EEG F4-REF', 'EEG C4-REF', 'EEG P4-REF', 'EEG O2-REF',
                                 'EEG F8-REF', 'EEG T4-REF', 'EEG T6-REF']
-        sigbufs = np.zeros((len(label_used), f.getNSamples()[0]))
-        for i, label in enumerate(signal_labels):
+        channel_tup = [('FP1','F7'),('F7','T3'),('T3','T5'),('T5','O1'),
+                       ('FP1','F3'),('F3','C3'),('C3','P3'),('P3','O1'),
+                       ('FZ','CZ'),('CZ','PZ'),('FP2','F4'),('F4','C4'),
+                       ('C4','P4'),('P4','O2'),('FP2','F8'),('F8','T4'),
+                       ('T4','T6'),('T6','O2')]
+        sigbufs = {}
+        print("signal_labels",signal_labels)
+        for i,label in enumerate(signal_labels):
             if label in label_used:
-                idx = label_used.index(label)
-                sigbufs[idx, :] = f.readSignal(i)
-        print("sigbufs", sigbufs, "\n")
+                sigbufs[label] = f.readSignal(i)
+
+        for key in sigbufs:
+            print(len(sigbufs[key]))
         chnbufs = np.zeros((18, f.getNSamples()[0]))
         # TO DO:
-
-        eeg_raw.append(chnbufs)
+        for idx,(first,second) in enumerate(channel_tup):
+            try:
+                chnbufs[idx] = sigbufs['EEG '+ first +'-REF'] - sigbufs['EEG '+ second +'-REF']
+            except:
+                print("in "+ edf_f +" pair EEG "+ first +'-REF, EEG '+ second +'-REF not found')
+                valid_flag = False
+                break
+        if not valid_flag:
+            f.close()
+            continue
+        if len(eeg_raw) == 0:
+            eeg_raw = chnbufs
+        else:
+            eeg_raw = np.concatenate((eeg_raw,chnbufs),axis=1)
+        if freq_raw != 0 and freq_raw != f.samplefrequency(0):
+            raise Exception("inconsistent frequency between "+ freq_raw + "and " +f.samplefrequency(0) )
         freq_raw = f.samplefrequency(0)
         f.close()
-    eeg_raw = np.concatenate(tuple(eeg_raw), axis=1)
     return eeg_raw, freq_raw
 
 def resize_eeg(eeg_raw, freq_raw, freq):
@@ -112,10 +135,22 @@ def resize_eeg(eeg_raw, freq_raw, freq):
     Return:
     np.array(18, SampleLengthUniformed)
     """
-    eeg = eeg_raw
-    return eeg
+    #total second of eeg_raw, need all file have same frequency
+    seconds = eeg_raw.shape[1]/freq_raw
+    time_stamp_prev = np.arange(0,seconds,1./freq_raw)
+    time_stamp_new = np.arange(0,seconds,1./freq)
+    eeg = []
+    for channel in eeg_raw:
+        new_channel = []
+        for time_item in time_stamp_new:
+            new_channel.append(np.interp(time_item,time_stamp_prev,channel))
+        eeg.append(new_channel)
+    return np.array(eeg)
 
 if __name__ == '__main__':
     file_path = "dataset/"
-    data = preprocess(file_path)
-    pickle.dump(data, open("./eeg_text.pkl", "wb"))
+
+
+
+
+
