@@ -80,15 +80,13 @@ class EEGTransformer(nn.Module):
 
         self.model_type = 'Transformer'
         self.padding_mask = None
-
+        self.pos_encoder = PositionalEncoding()
         # Encoder
         encoder_layers = nn.TransformerEncoderLayer(d_model=ninp, nhead=nhead)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers=nlayers)
         # Decoder
         decoder_layer = nn.TransformerDecoderLayer(d_model=ninp, nhead=nhead)
         self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=nlayers)
-
-
 
     #def forward(self, input, target, len):
         #"""E.g. input, target, len:"""
@@ -101,14 +99,24 @@ class EEGTransformer(nn.Module):
     def forward(self, src, target, len):
         device = src.device
         S = src.size()[0]
-        N = src.size()[1]
-        padding_mask = self._generate_src_padding_mask(src, N, S).to(device)
+        T = target.size()[0]
+        padding_mask = self._generate_src_padding_mask(len, S).to(device)
         self.padding_mask = padding_mask
 
         memory = self.transformer_encoder(src, src_key_padding_mask=self.padding_mask)
-        word_embedding = self.transformer_decoder(target, memory)
+        target = self.pos_encoder(target, len)
+        word_embedding = self.transformer_decoder(target, memory, tgt_mask = self._generate_src_padding_mask(T))
         return word_embedding
 
-    def _generate_src_padding_mask(self, src, N, S):
-        mask = torch.zeros(N, S) == src
+    def _generate_src_padding_mask(self, len, S):
+        mask = []
+        for i in len:
+            a = i * [False] + (S-i) * [True]
+            mask.append(a)
+        mask = torch.tensor(mask)
+        return mask
+
+    def _generate_square_subsequent_mask(self, S):
+        mask = (torch.triu(torch.ones(S, S)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
