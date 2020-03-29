@@ -20,7 +20,7 @@ def get_args():
     return args
 
 def run_training(args, dataset, train_loader):
-    model = EEGtoReport(vocab_size= len(dataset.ixtoword))
+    model = EEGtoReport(vocab_size=len(dataset.ixtoword))
     optimizer = optim.Adam(
         model.parameters(),
         lr=args.learning_rate
@@ -29,11 +29,12 @@ def run_training(args, dataset, train_loader):
     model = model.to(args.device)
     model.train()
     for epoch in range(args.epochs):
-        for batch_ndx, (input, target, length) in enumerate(train_loader):
-            print("input", input)
-            print("target", target)
+        for batch_ndx, (input, target, length, length_t) in enumerate(train_loader):
+            print("input", input.size())
+            print("target", target.size())
             print("length", length)
-            output = model(input, target, length)
+            print("length_t", length_t)
+            output = model(input, target, length, length_t)
             # loss = loss_func(output, target)
             #
             # optimizer.zero_grad()
