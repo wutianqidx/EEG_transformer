@@ -67,7 +67,6 @@ class EEGDataset(Dataset):
         # print(max_len)
         # print(textual_ids)
         # print(self.freq)
-
         return textual_ids, max_len, ixtoword, wordtoix
 
     def get_text(self, idx):
@@ -116,4 +115,5 @@ class EEGDataset(Dataset):
 def collate_wrapper(batch):
     input_indv, target, len = list(zip(*batch))
     input = torch.cat(input_indv, 0)
+    target = torch.stack(target)
     return input, target, len

@@ -8,22 +8,27 @@ def loss_func(output, target):
     loss = None
     return loss
 
+
 class EEGtoReport(nn.Module):
-    def __init__(self, emb_dim = 512, max_len = 3):
+    def __init__(self, emb_dim = 512, vocab_size = 77):
         super().__init__()
         self.emb_dim = emb_dim
-        self.max_len = max_len
         self.eeg_encoder = EEGEncoder(emb_dim = self.emb_dim)
-        self.pos_encoder = PositionalEncoding(emb_dim = self.emb_dim)
-        #self.eeg_transformer = EEGTransformer()
+        # target report embedding
+        self.embedding = nn.Embedding(vocab_size, emb_dim)
+        # position encoder for src & target
+        self.eeg_pos_encoder = PositionalEncoding(emb_dim=self.emb_dim, input_type='eeg')
+        self.report_pos_encoder = PositionalEncoding(emb_dim=self.emb_dim, input_type='report')
+        # transformer
+        self.eeg_transformer = EEGTransformer(vocab_size)
 
     def forward(self, input, target, length):
+        target = self.embedding(target)
         eeg_embedding = self.eeg_encoder(input)
-        eeg_embedding = self.pos_encoder(eeg_embedding, self.max_len, length)
-        #word_embedding = self.eeg_transformer(eeg_embedding, target, len)
-        #return word_embedding
-        return eeg_embedding
-
+        eeg_embedding = self.eeg_pos_encoder(eeg_embedding, length)
+        target_embedding = self.report_pos_encoder(target, length)
+        word_embedding = self.eeg_transformer(eeg_embedding, target_embedding, length)
+        return word_embedding
 
 class EEGEncoder(nn.Module):
     """TO DO: encode eeg recording to embedding
@@ -72,7 +77,7 @@ class EEGEncoder(nn.Module):
         self.batch4 = nn.BatchNorm1d(emb_dim)
 
     def forward(self, input):
-        input = input.unsqueeze(1)
+        input = input.float().unsqueeze(1)
         x = self.conv1(input).squeeze()
         x = self.pool1(x)
         x = self.batch1(x).unsqueeze(1)
@@ -89,31 +94,37 @@ class EEGEncoder(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, emb_dim=512, dropout=0.1, max_len=5000):
+    def __init__(self, emb_dim=512, dropout=0.1, pos_max_len=5000, input_type='eeg'):   #input_type=['eeg','report']
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         self.emb_dim = emb_dim
+        self.input_type = input_type
 
-        pe = torch.zeros(max_len, emb_dim)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        pe = torch.zeros(pos_max_len, emb_dim)
+        position = torch.arange(0, pos_max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, emb_dim, 2).float() * (-math.log(10000.0) / emb_dim))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
         self.register_buffer('pe', pe)
 
-    def forward(self, x, max_len, length):
-        """Return: torch.tensor((S,N,E)), where S is the sequence length, N is the batch size, E is the feature number
+    def forward(self, x, length):
+        """Return: torch.tensor((N,S,E)), where S is the sequence length, N is the batch size, E is the feature number
                E.g. eeg_embedding, len = torch.tensor(5, 512), (1,4) -> torch.tensor(4, 2, 512) padding with 0 and then do positional encoding
                torch.split may be helpful
         """
-        position_indicator = sum([list(range(x)) for x in length], [])
-        x = x + self.pe[position_indicator, :].squeeze()
-        x = torch.split(x, length)
-        batch_size = len(length)
-        final_embedding = torch.zeros(batch_size, max_len, self.emb_dim)
-        for i, k in enumerate(length):
-            final_embedding[i, :k, :] = x[i]
+        if self.input_type == 'report':
+            final_embedding = x + self.pe[:x.size(0), :]    # N,S,E
+        elif self.input_type == 'eeg':
+            position_indicator = sum([list(range(x)) for x in length], [])
+            print(x.size(), self.pe[position_indicator, :].squeeze().size())
+            x = x + self.pe[position_indicator, :].squeeze()
+            x = torch.split(x, length)
+            batch_size = len(length)
+            final_embedding = torch.zeros(batch_size, max(length), self.emb_dim)
+            for i, k in enumerate(length):
+                final_embedding[i, :k, :] = x[i]   # N,S,E
+        final_embedding = final_embedding.permute(1,0,2)        # N,S,E ->  S,N,E
         return self.dropout(final_embedding)
 
 
@@ -127,7 +138,6 @@ class EEGTransformer(nn.Module):
 
         self.model_type = 'Transformer'
         self.padding_mask = None
-        self.pos_encoder = PositionalEncoding()
         # Encoder
         encoder_layers = nn.TransformerEncoderLayer(d_model=ninp, nhead=nhead)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers=nlayers)
@@ -151,7 +161,6 @@ class EEGTransformer(nn.Module):
         self.padding_mask = padding_mask
 
         memory = self.transformer_encoder(src, src_key_padding_mask=self.padding_mask)
-        target = self.pos_encoder(target, len)
         word_embedding = self.transformer_decoder(target, memory, tgt_mask = self._generate_src_padding_mask(T))
         return word_embedding
 
