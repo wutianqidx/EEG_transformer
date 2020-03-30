@@ -10,12 +10,13 @@ def loss_func(output, target):
 
 
 class EEGtoReport(nn.Module):
-    def __init__(self, emb_dim = 512, emb_dim_t = 128, vocab_size = 77):
+    def __init__(self, emb_dim = 512, emb_dim_t = 128, eeg_epoch_max = 20, vocab_size = 77):
         super().__init__()
+        self.eeg_epoch_max = eeg_epoch_max
         # input eeg embedding
         self.eeg_encoder = EEGEncoder(emb_dim=emb_dim)
         # target report embedding
-        self.embedding = nn.Embedding(vocab_size, emb_dim_t)
+        self.embedding = nn.Embedding(vocab_size, emb_dim_t, padding_idx=0)
         # position encoder for src & target
         self.eeg_pos_encoder = PositionalEncoding(emb_dim=emb_dim, input_type='eeg')
         self.report_pos_encoder = PositionalEncoding(emb_dim=emb_dim_t, input_type='report')
@@ -24,9 +25,9 @@ class EEGtoReport(nn.Module):
 
     def forward(self, input, target, length, length_t):
         eeg_embedding = self.eeg_encoder(input)
-        eeg_embedding = self.eeg_pos_encoder(eeg_embedding, length)
+        eeg_embedding = self.eeg_pos_encoder(eeg_embedding, length, self.eeg_epoch_max)
         report_embedding = self.embedding(target)
-        report_embedding = self.report_pos_encoder(report_embedding, length)
+        report_embedding = self.report_pos_encoder(report_embedding, length_t)
         word_embedding = self.eeg_transformer(eeg_embedding, report_embedding, length, length_t)
         return word_embedding
 

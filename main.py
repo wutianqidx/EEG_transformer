@@ -20,7 +20,7 @@ def get_args():
     return args
 
 def run_training(args, dataset, train_loader):
-    model = EEGtoReport(vocab_size=len(dataset.ixtoword))
+    model = EEGtoReport(eeg_epoch_max=dataset.max_len, vocab_size=len(dataset.ixtoword))
     optimizer = optim.Adam(
         model.parameters(),
         lr=args.learning_rate

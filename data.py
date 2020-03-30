@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
+import torch.nn.functional as F
 import pandas as pd
 
 class EEGDataset(Dataset):
@@ -15,24 +16,32 @@ class EEGDataset(Dataset):
             word_bag: {word: frequency}
             frequency: n Hz which means n*60 samples/min
         """
-        self.THRESHOLD = 2
         self.data, self.word_bag, self.freq = pd.read_pickle(pkl_file)
-        self.textual_ids, self.ixtoword, self.wordtoix = self.build_dict()
+        self.THRESHOLD = 2
+        self.eeg_epoch_len = self.freq * 60
+        self.textual_ids, self.max_len_t, self.ixtoword, self.wordtoix, self.max_len = self.build_dict()
 
     def build_dict(self):
         ixtoword = {1:'<end>', 2:'<sep>', 3:'<punc>', 4:'<unk>'}
         wordtoix = {'<end>':1, '<sep>':2, '<punc>':3, '<unk>':4}
         textual_ids = []
+        max_len_t = 0
+        max_len = 0
 
         idx = 5
         for word, freq in self.word_bag.items():
-            if word not in wordtoix:
-                if freq >= self.THRESHOLD:
-                    ixtoword[idx] = word
-                    wordtoix[word] = idx
-                    idx += 1
+            if word not in wordtoix and freq >= self.THRESHOLD:
+                ixtoword[idx] = word
+                wordtoix[word] = idx
+                idx += 1
 
         for eeg, report in self.data:
+            length_t = len(report)
+            if length_t > max_len_t:
+                max_len_t = length_t
+            length = eeg.shape[1]//self.eeg_epoch_len
+            if length > max_len:
+                max_len = length
             temp = []
             for word in report:
                 if word in wordtoix:
@@ -40,17 +49,18 @@ class EEGDataset(Dataset):
                 else:
                     temp.append(wordtoix['<unk>'])
             textual_ids.append(temp)
-        return textual_ids, ixtoword, wordtoix
+        return textual_ids, max_len_t, ixtoword, wordtoix, max_len
 
     def get_text(self, idx):
-        text = torch.tensor(self.textual_ids[idx]).view(-1, 1)
+        length_t = len(self.textual_ids[idx])
+        text = F.pad(torch.tensor(self.textual_ids[idx]), (0, self.max_len_t-length_t))
         return text
 
     def get_eeg(self, idx):
-        eeg, report = self.data[idx]
+        eeg, _ = self.data[idx]
         shape1 = eeg.shape[0]
-        shape2 = self.freq * 60
-        shape0 = int(eeg.shape[1]/self.freq/60)
+        shape2 = self.eeg_epoch_len
+        shape0 = eeg.shape[1]//self.eeg_epoch_len
         cutoff = shape2 * shape0
         new_eeg = eeg[:, :cutoff]
         reshape_eeg = new_eeg.reshape(shape0, shape1, shape2)
@@ -82,7 +92,8 @@ class EEGDataset(Dataset):
         return eeg, report, len(eeg), len(report)
 
 def collate_wrapper(batch):
-    input_indv, target_indv, len, len_t = list(zip(*batch))
-    input = torch.cat(input_indv, 0)
-    target = pad_sequence(target_indv)
-    return input, target, len, len_t
+    input, target, length, length_t = list(zip(*batch))
+    input = torch.cat(input, 0)
+    target = torch.stack(target, 0) # N,T unified among batches
+    print('target size', target.size())
+    return input, target, length, length_t
