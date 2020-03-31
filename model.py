@@ -10,12 +10,13 @@ def loss_func(output, target):
 
 
 class EEGtoReport(nn.Module):
-    def __init__(self, emb_dim = 512, emb_dim_t = 128, vocab_size = 77):
+    def __init__(self, emb_dim = 512, emb_dim_t = 128, eeg_epoch_max = 20, vocab_size = 77):
         super().__init__()
+        self.eeg_epoch_max = eeg_epoch_max
         # input eeg embedding
         self.eeg_encoder = EEGEncoder(emb_dim=emb_dim)
         # target report embedding
-        self.embedding = nn.Embedding(vocab_size, emb_dim_t)
+        self.embedding = nn.Embedding(vocab_size, emb_dim_t, padding_idx=0)
         # position encoder for src & target
         self.eeg_pos_encoder = PositionalEncoding(emb_dim=emb_dim, input_type='eeg')
         self.report_pos_encoder = PositionalEncoding(emb_dim=emb_dim_t, input_type='report')
@@ -24,12 +25,11 @@ class EEGtoReport(nn.Module):
 
     def forward(self, input, target, length, length_t):
         eeg_embedding = self.eeg_encoder(input)
-        eeg_embedding = self.eeg_pos_encoder(eeg_embedding, length)
+        eeg_embedding = self.eeg_pos_encoder(eeg_embedding, length, self.eeg_epoch_max)
         report_embedding = self.embedding(target)
-        report_embedding = self.report_pos_encoder(report_embedding, length)
-        #word_embedding = self.eeg_transformer(eeg_embedding, report_embedding, length, length_t)
-        #return word_embedding
-        return eeg_embedding, report_embedding
+        report_embedding = self.report_pos_encoder(report_embedding, length_t)
+        word_embedding = self.eeg_transformer(eeg_embedding, report_embedding, length, length_t)
+        return word_embedding
 
 class EEGEncoder(nn.Module):
     """BY TIANQI: encode eeg recording to embedding
@@ -65,40 +65,34 @@ class EEGEncoder(nn.Module):
 
     def __init__(self, emb_dim = 512):
         super().__init__()
-        self.conv1 = nn.Conv1d(18, 32, 5)
-        self.pool1 = nn.MaxPool1d(23)
+        self.conv1 = nn.Conv1d(1, 32, (18, 5))
+        self.pool1 = nn.MaxPool1d(16)
         self.batch1 = nn.BatchNorm1d(32)
-        #self.dropout1 = nn.Dropout(0.15)
-        self.conv2 = nn.Conv1d(32, 64, 5)
-        self.pool2 = nn.MaxPool1d(9)
+        self.conv2 = nn.Conv1d(1, 64, (32, 5))
+        self.pool2 = nn.MaxPool1d(16)
         self.batch2 = nn.BatchNorm1d(64)
-        #self.dropout2 = nn.Dropout(0.15)
-        self.conv3 = nn.Conv1d(64, 256, 5)
-        self.pool3 = nn.MaxPool1d(4)
+        self.conv3 = nn.Conv1d(1, 256, (64, 5))
+        self.pool3 = nn.MaxPool1d(8)
         self.batch3 = nn.BatchNorm1d(256)
-        #self.dropout3 = nn.Dropout(0.15)
-        self.conv4 = nn.Conv1d(256, emb_dim, 5)
-        self.pool4 = nn.MaxPool1d(13)
+        self.conv4 = nn.Conv1d(1, emb_dim, (256, 5))
+        self.pool4 = nn.MaxPool1d(2)
         self.batch4 = nn.BatchNorm1d(emb_dim)
 
     def forward(self, input):
-        input = input.float()
-        x = self.conv1(input)
+        input = input.float().unsqueeze(1)
+        x = self.conv1(input).squeeze()
         x = self.pool1(x)
-        x = F.relu(self.batch1(x))
-        #x = self.dropout1(x)
-        x = self.conv2(x)
+        x = self.batch1(x).unsqueeze(1)
+        x = self.conv2(x).squeeze()
         x = self.pool2(x)
-        x = F.relu(self.batch2(x))
-        #x = self.dropout2(x)
-        x = self.conv3(x)
+        x = self.batch2(x).unsqueeze(1)
+        x = self.conv3(x).squeeze()
         x = self.pool3(x)
-        x = F.relu(self.batch3(x))
-        #x = self.dropout3(x)
-        x = self.conv4(x)
+        x = self.batch3(x).unsqueeze(1)
+        x = self.conv4(x).squeeze()
         x = self.pool4(x)
-        x = F.relu(self.batch4(x))
-        return x.squeeze()
+        x = self.batch4(x).squeeze()
+        return x
 
 
 class PositionalEncoding(nn.Module):
@@ -126,7 +120,7 @@ class PositionalEncoding(nn.Module):
             final_embedding = x + self.pe[:x.size(0), :]    # N,S,E
         elif self.input_type == 'eeg':
             position_indicator = sum([list(range(x)) for x in length], [])
-            #print(x.size(), self.pe[position_indicator, :].squeeze().size())
+            print(x.size(), self.pe[position_indicator, :].squeeze().size())
             x = x + self.pe[position_indicator, :].squeeze()
             x = torch.split(x, length)
             batch_size = len(length)
