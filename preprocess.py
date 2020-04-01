@@ -14,7 +14,6 @@ import re
 
 def preprocess(file_path):
     """Preprocess files in file_path
-
     Arg:
     file_path: files path
     Return:
@@ -40,10 +39,8 @@ def preprocess(file_path):
 
 def parse_txt(txt_f, word_bag):
     """BY PEIYAO: parse report IMPRESSION & DESCRIPTION OF THE RECORD as string list, update word bag
-
     Some keywords are Summary of Findings (Interpretation) & Description, not IMPRESSION & DESCRIPTION OF THE RECORD. We should consider that later.
     "In addition, we also process the reports by tokenizing and converting to lower-cases."  --EEGtoText: Learning to Write Medical Reports from EEG Recordings
-
     Arg:
     txt_f: report.txt path
     word_bag: {word: frequency} which should be updated
