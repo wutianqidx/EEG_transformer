@@ -6,7 +6,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from data import EEGDataset, collate_wrapper
-from model import EEGtoReport, EEGTransformer, loss_func
+from model import EEGtoReport, loss_func
 
 def get_args():
     parser = argparse.ArgumentParser()
