@@ -109,11 +109,17 @@ def parse_txt(txt_f, word_bag):
     description = description.lower()
     impression = impression.lower()
 
-    description = re.sub(r'[^\w\s]', ' <punc> ', description)
-    impression = re.sub(r'[^\w\s]', ' <punc> ', impression)
+    description = re.sub(r'[^\w\s\-]', ' <punc> ', description)
+    impression = re.sub(r'[^\w\s\-]', ' <punc> ', impression)
 
     description_token = description.split()
     impression_token = impression.split()
+
+    if description_token[-1] == '<punc>':
+    	description_token = description_token[:-1]
+
+    if impression_token[-1] == '<punc>':
+    	impression_token = impression_token[:-1]
 
     description_token.append('<end>')
     impression_token.append('<sep>')
