@@ -7,13 +7,17 @@ from glob import glob
 import pyedflib
 import string
 from collections import defaultdict
+import random
 
 import nltk
 from nltk.tokenize import word_tokenize
 import re
 
 def preprocess(file_path):
-    """Preprocess files in file_path
+    """TO DO: Download dataset as instruction in README.md at first
+    Pick correct file_path and traverse through it
+
+    Preprocess files in file_path
     Arg:
     file_path: files path
     Return:
@@ -225,5 +229,10 @@ def resize_eeg(eeg_raw, freq_raw, freq):
 
 if __name__ == '__main__':
     file_path = "dataset/"
-    data = preprocess(file_path)
-    pickle.dump(data, open("./eeg_text.pkl", "wb"))
+    data, word_bag, freq = preprocess(file_path)
+    random.shuffle(data)
+    train_len = int(len(data)*0.6)
+    val_len = int(len(data)*0.2)
+    pickle.dump((data[:train_len], word_bag, freq), open("dataset/eeg_text_train.pkl", "wb"))
+    pickle.dump((data[train_len:train_len+val_len], word_bag, freq), open("dataset/eeg_text_val.pkl", "wb"))
+    pickle.dump((data[train_len+val_len:], word_bag, freq), open("dataset/eeg_text_test.pkl", "wb"))

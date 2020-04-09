@@ -2,15 +2,18 @@ import torch
 import torch.nn as nn
 import math
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence
 
 
-def loss_func(output, target):
-    loss = None
+def loss_func(output, target, length_t):
+    output = pack_padded_sequence(output, length_t, enforce_sorted=False).data
+    target = pack_padded_sequence(target, length_t, enforce_sorted=False).data.view(-1)
+    loss = F.cross_entropy(output, target)
     return loss
 
 
 class EEGtoReport(nn.Module):
-    def __init__(self, emb_dim=512, emb_dim_t=512, eeg_epoch_max=50, report_epoch_max=174, vocab_size=78):
+    def __init__(self, emb_dim=512, emb_dim_t=512, eeg_epoch_max=33, report_epoch_max=169, vocab_size=76):
         super().__init__()
         self.eeg_epoch_max = eeg_epoch_max
         self.report_epoch_max = report_epoch_max
@@ -25,20 +28,45 @@ class EEGtoReport(nn.Module):
         # transformer
         self.eeg_transformer = nn.Transformer(d_model=emb_dim, nhead=1, num_encoder_layers=1,
                                               num_decoder_layers=1, dim_feedforward=128, dropout=0.1)
+        self.word_net = nn.Sequential(
+            nn.Linear(emb_dim, emb_dim),
+            nn.Tanh(),
+            nn.Linear(emb_dim, vocab_size)
+        )
 
-    def forward(self, input, target, length, length_t):
+    def forward(self, input, target, length, length_t, train=True):
         eeg_embedding = self.eeg_encoder(input)
         eeg_embedding, src_padding_mask = self.eeg_pos_encoder(eeg_embedding, length)
 
-        target, tgt_padding_mask = pad_target(target, self.report_epoch_max)
-        report_embedding = self.embedding(target)
-        report_embedding = self.report_pos_encoder(report_embedding, length_t)
+        if train:
+            target, tgt_padding_mask = pad_target(target, self.report_epoch_max)
+            report_embedding = self.embedding(target)
+            report_embedding = self.report_pos_encoder(report_embedding, length_t)
 
-        word_embedding = self.eeg_transformer(eeg_embedding, report_embedding,
-                                              src_key_padding_mask=src_padding_mask,
-                                              tgt_key_padding_mask=tgt_padding_mask,
-                                              memory_key_padding_mask=src_padding_mask)
-        return word_embedding
+            word_embedding = self.eeg_transformer(eeg_embedding, report_embedding,
+                                                  src_key_padding_mask=src_padding_mask,
+                                                  tgt_key_padding_mask=tgt_padding_mask,
+                                                  memory_key_padding_mask=src_padding_mask)
+            word_logits = self.word_net(word_embedding)
+        else:
+            """TO DO: During evaluation, output of t is input of t+1
+            start-token is 1
+            input at t+1 is argmax(word_logit @ t)
+            stop when output @ t is 2:'<end>'
+            Return:
+            word_logits_argmax: words idx with size(T_real) just like target before padding
+            """
+            target, tgt_padding_mask = pad_target(target, self.report_epoch_max)
+            report_embedding = self.embedding(target)
+            report_embedding = self.report_pos_encoder(report_embedding, length_t)
+
+            word_embedding = self.eeg_transformer(eeg_embedding, report_embedding,
+                                                  src_key_padding_mask=src_padding_mask,
+                                                  tgt_key_padding_mask=tgt_padding_mask,
+                                                  memory_key_padding_mask=src_padding_mask)
+            word_logits = self.word_net(word_embedding)
+
+        return word_logits
 
 
 def pad_target(report, max_len):
