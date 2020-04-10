@@ -1,4 +1,5 @@
 import warnings
+import nltk
 warnings.filterwarnings("ignore")
 import os
 import argparse
@@ -9,7 +10,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pack_padded_sequence
-
+from nltk.translate.bleu_score import sentence_bleu
 from data import EEGDataset, CollateWrapper
 from model import EEGtoReport
 
@@ -55,36 +56,49 @@ def run_evaluation(args, checkpoint, dataset, train_loader):
             output = pack_padded_sequence(output, length_t, enforce_sorted=False).data.argmax(dim=1) # temporary
             target = pack_padded_sequence(target, length_t, enforce_sorted=False).data.view(-1)
 
+            output = " ".join([ dataset.ixtoword[int(i)] for i in output])
+            output.replace('<sep>','|')
+            output.replace('<punc>', ',')
+            output.replace('<end>','')
+            output.replace('<unk>','unknown')#output idx to string
+
+            target = " ".join([ dataset.ixtoword[int(i)] for i in target])
+            target.replace('<sep>','|')
+            target.replace('<punc>', ',')
+            target.replace('<end>','')
+            target.replace('<unk>','unknown')#target idx to string
+
+
             meteor = meteor_func(output, target)
-            cider = cider_func(output, target)
+            #cider = cider_func(output, target)
             bleu_1 = bleu_1_func(output, target)
             bleu_2 = bleu_2_func(output, target)
             bleu_3 = bleu_3_func(output, target)
             bleu_4 = bleu_4_func(output, target)
 
             metrics['meteor'].append(meteor)
-            metrics['cider'].append(cider)
+            #metrics['cider'].append(cider)
             metrics['bleu_1'].append(bleu_1)
             metrics['bleu_2'].append(bleu_2)
             metrics['bleu_3'].append(bleu_3)
             metrics['bleu_4'].append(bleu_4)
 
         meteor_impression, meteor_description = list(zip(*metrics['meteor']))
-        cider_impression, cider_description = list(zip(*metrics['cider']))
+        #cider_impression, cider_description = list(zip(*metrics['cider']))
         bleu_1_impression, bleu_1_description = list(zip(*metrics['bleu_1']))
         bleu_2_impression, bleu_2_description = list(zip(*metrics['bleu_2']))
         bleu_3_impression, bleu_3_description = list(zip(*metrics['bleu_3']))
         bleu_4_impression, bleu_4_description = list(zip(*metrics['bleu_4']))
 
         print("meteor impression: ", np.mean(meteor_impression))
-        print("cider impression: ", np.mean(cider_impression))
+        #print("cider impression: ", np.mean(cider_impression))
         print("bleu_1 impression: ", np.mean(bleu_1_impression))
         print("bleu_2 impression: ", np.mean(bleu_2_impression))
         print("bleu_3 impression: ", np.mean(bleu_3_impression))
         print("bleu_4 impression: ", np.mean(bleu_4_impression))
 
         print("meteor description: ", np.mean(meteor_description))
-        print("cider description: ", np.mean(cider_description))
+        #print("cider description: ", np.mean(cider_description))
         print("bleu_1 description: ", np.mean(bleu_1_description))
         print("bleu_2 description: ", np.mean(bleu_2_description))
         print("bleu_3 description: ", np.mean(bleu_3_description))
@@ -99,7 +113,10 @@ def meteor_func(output, target):
     Return:
     metric_impression, metric_description
     """
-    return 0, 0
+    output_impression, output_description = output.split('|')
+    target_impression, target_description = target.split('|')
+    return nltk.translate.meteor_score.meteor_score([target_impression],output_impression), \
+           nltk.translate.meteor_score.meteor_score([target_description],output_description)
 
 def cider_func(output, target):
     """TO DO:"""
@@ -107,21 +124,39 @@ def cider_func(output, target):
 
 def bleu_1_func(output, target):
     """TO DO:"""
-    return 0, 0
+    output_impression, output_description = output.split('|')
+    target_impression, target_description = target.split('|')
+    weights = (1.,)
+    return sentence_bleu([target_impression],output_impression,weights), \
+           sentence_bleu([target_description],output_description,weights)
 
 def bleu_2_func(output, target):
     """TO DO:"""
-    return 0, 0
+    output_impression, output_description = output.split('|')
+    target_impression, target_description = target.split('|')
+    weights = (1./2.,1./2.)
+    return sentence_bleu([target_impression], output_impression, weights), \
+           sentence_bleu([target_description], output_description, weights)
 
 def bleu_3_func(output, target):
     """TO DO:"""
-    return 0, 0
+    output_impression, output_description = output.split('|')
+    target_impression, target_description = target.split('|')
+    weights = (1./3.,1./3.,1./3.)
+    return sentence_bleu([target_impression], output_impression, weights), \
+           sentence_bleu([target_description], output_description, weights)
 
 def bleu_4_func(output, target):
     """TO DO:"""
-    return 0, 0
+    output_impression, output_description = output.split('|')
+    target_impression, target_description = target.split('|')
+    weights = (1. / 4., 1. / 4., 1. / 4., 1. / 4.)
+    return sentence_bleu([target_impression], output_impression, weights), \
+           sentence_bleu([target_description], output_description, weights)
 
 def main(args):
+    # works on nltk version 3.4.5, python 3.5
+    nltk.download('wordnet')
     tic = time.time()
     dataset = EEGDataset(args.pkl)
     print("dataset len:", len(dataset))
