@@ -15,7 +15,7 @@ class EEGDataset(Dataset):
             word_bag: {word: frequency}
             frequency: n Hz which means n*60 samples/min
         """
-        self.THRESHOLD = 2
+        self.THRESHOLD = 1
         self.data, self.word_bag, self.freq = pd.read_pickle(pkl_file)
         self.eeg_epoch_len = self.freq * 60
         self.textual_ids, self.max_len_t, self.ixtoword, self.wordtoix, self.max_len = self.build_dict()
@@ -45,6 +45,8 @@ class EEGDataset(Dataset):
                 max_len = length
             temp = []
             for word in report:
+                if word == '<punc>':
+                    continue
                 if word in wordtoix:
                     temp.append(wordtoix[word])
                 else:
@@ -53,7 +55,8 @@ class EEGDataset(Dataset):
         return textual_ids, max_len_t, ixtoword, wordtoix, max_len
 
     def get_text(self, idx):
-        text_i = torch.tensor([1]+self.textual_ids[idx][:-1])
+        # text_i = torch.tensor([1]+self.textual_ids[idx][:-1])
+        text_i = torch.tensor([1] + self.textual_ids[idx])
         text = F.pad(torch.tensor(self.textual_ids[idx]), (0, self.max_len_t-len(text_i))).view(-1, 1)
         return text_i, text
 

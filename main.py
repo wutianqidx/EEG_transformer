@@ -10,18 +10,18 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from data import EEGDataset, collate_wrapper
-from model import EEGtoReport, loss_func
+from model import EEGtoReport # , loss_func
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs for training')
+    parser.add_argument('--epochs', type=int, default=1000, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=3, help="Batch size (default=32)")
     parser.add_argument('--run', default='', help='Continue training on runX. Eg. --run=run1')
     args = parser.parse_args()
     args.base_output = "checkpoint/"
     args.checkpoint = "eeg_text_checkpoint"
     args.eval_every = 10
-    args.learning_rate = 0.001
+    args.learning_rate = 0.0001
 
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     args.seed = 1337
@@ -70,9 +70,14 @@ def run_training(args, dataset, train_loader):
     for epoch in range(args.epochs):
         epoch_metrics = []
         for batch_ndx, (input, target_i, target, length, length_t) in enumerate(train_loader):
-            output = model(input, target_i, length, length_t)
-            loss = loss_func(output, target, length_t)
-
+            ## print('input:', input.size())
+            ## print('target_i:', [x.size() for x in target_i])
+            ## print('target:', target.size())
+            ## print('length:', length)
+            #print('length_t:', length_t)
+            output, padded_target = model(input, target_i, length, length_t)
+            #loss = loss_func(output, target, length_t)
+            loss = model.loss_func(output, padded_target, length_t)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -93,10 +98,13 @@ def run_training(args, dataset, train_loader):
             print('epochs={},batch_size={},run={},lr={} loss:{}'.format(
                 epoch_start+epoch+1,args.batch_size,args.run,args.learning_rate, metrics[epoch]))
 
+            #print(torch.argmax(output,dim=2).view(-1), padded_target)
+
 def main(args):
     tic = time.time()
     dataset = EEGDataset("dataset/eeg_text_train.pkl")
     print("dataset len:", len(dataset))
+    #print(dataset.max_len_t,dataset.max_len,dataset.vocab_size)
     train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=collate_wrapper)
     run_training(args, dataset, train_loader)
     print('[{:.2f}] Finish training'.format(time.time() - tic))

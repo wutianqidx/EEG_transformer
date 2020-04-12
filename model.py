@@ -5,18 +5,12 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence
 
 
-def loss_func(output, target, length_t):
-    output = pack_padded_sequence(output, length_t, enforce_sorted=False).data
-    target = pack_padded_sequence(target, length_t, enforce_sorted=False).data.view(-1)
-    loss = F.cross_entropy(output, target)
-    return loss
-
-
 class EEGtoReport(nn.Module):
     def __init__(self, emb_dim=512, emb_dim_t=512, eeg_epoch_max=33, report_epoch_max=169, vocab_size=76):
         super().__init__()
+        self.vocab_size = vocab_size
         self.eeg_epoch_max = eeg_epoch_max
-        self.report_epoch_max = report_epoch_max
+        self.report_epoch_max = report_epoch_max+1
         # input eeg embedding
         self.eeg_encoder = EEGEncoder(emb_dim=emb_dim)
         # target report embedding
@@ -26,8 +20,8 @@ class EEGtoReport(nn.Module):
         self.eeg_pos_encoder = PositionalEncoding(emb_dim=emb_dim, input_type='eeg', eeg_max=eeg_epoch_max)
         self.report_pos_encoder = PositionalEncoding(emb_dim=emb_dim_t, input_type='report')
         # transformer
-        self.eeg_transformer = nn.Transformer(d_model=emb_dim, nhead=1, num_encoder_layers=1,
-                                              num_decoder_layers=1, dim_feedforward=128, dropout=0.1)
+        self.eeg_transformer = nn.Transformer(d_model=emb_dim, nhead=4, num_encoder_layers=3,
+                                              num_decoder_layers=3, dim_feedforward=1024, dropout=0)
         self.word_net = nn.Sequential(
             nn.Linear(emb_dim, emb_dim),
             nn.Tanh(),
@@ -40,14 +34,20 @@ class EEGtoReport(nn.Module):
 
         if train:
             target, tgt_padding_mask = pad_target(target, self.report_epoch_max)
+            tgt_mask = generate_square_subsequent_mask(self.report_epoch_max)
             report_embedding = self.embedding(target)
             report_embedding = self.report_pos_encoder(report_embedding, length_t)
 
             word_embedding = self.eeg_transformer(eeg_embedding, report_embedding,
+                                                  tgt_mask = tgt_mask,
                                                   src_key_padding_mask=src_padding_mask,
                                                   tgt_key_padding_mask=tgt_padding_mask,
                                                   memory_key_padding_mask=src_padding_mask)
             word_logits = self.word_net(word_embedding)
+            # print(word_embedding.size())
+            # print(word_logits.size())
+            # print(word_logits)
+            # print(torch.argmax(word_logits,dim=2))
         else:
             """TO DO: During evaluation, output of t is input of t+1
             start-token is 1
@@ -66,7 +66,15 @@ class EEGtoReport(nn.Module):
                                                   memory_key_padding_mask=src_padding_mask)
             word_logits = self.word_net(word_embedding)
 
-        return word_logits
+        return word_logits, target
+
+    def loss_func(self, output, target, length_t):
+        output = pack_padded_sequence(output, length_t, enforce_sorted=False).data
+        target = pack_padded_sequence(target.permute(1, 0), length_t, enforce_sorted=False).data
+        #loss = F.cross_entropy(output.view(-1, self.vocab_size), target.view(-1))
+        criterion = nn.CrossEntropyLoss()
+        loss = criterion(output.view(-1, self.vocab_size), target.view(-1))
+        return loss
 
 
 def pad_target(report, max_len):
@@ -76,6 +84,13 @@ def pad_target(report, max_len):
         tgt[i, :len(x)] = x
         tgt_mask[i, len(x):] = True
     return tgt, tgt_mask
+
+def generate_square_subsequent_mask(sz):
+    mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+    mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+    return mask
+
+
 
 class EEGEncoder(nn.Module):
     """BY TIANQI: encode eeg recording to embedding
