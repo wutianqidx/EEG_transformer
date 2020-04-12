@@ -1,0 +1,11 @@
+CLINICAL HISTORY:   58 year old right handed gentleman with a long history of epilepsy, currently seizures down to 1 every 3 months.  Previous left central focus during EEG monitoring.  Cerebellar atrophy.
+MEDICATIONS:  Lamictal.
+INTRODUCTION:  Digital video EEG was performed in lab using standard 10-20 system of electrode placement with channel of EKG.  Hyperventilation and photic stimulation are performed.  This is an awake and asleep record.
+DESCRIPTION OF THE RECORD:  In maximal wakefulness there is a 9 Hz posterior dominant rhythm.  Both drowsiness and hyperventilation produced an increase in theta.  Vertex waves are noted in stage 1 sleep.  There are minor asymmetries as well as artifact noted in the T3 electrode.  These are apparent in sleep. Photic stimulation is performed while the patient is relatively drowsy and/or transitioning in and out of stage 1 and stage 2 sleep.  There is no significant driving response.
+HR:    72 bpm
+IMPRESSION:  Normal EEG in wakefulness through stage 2 sleep.
+CLINICAL CORRELATION:  There are no epileptiform features noted in this record.  Comparison with this patient's previous EEGs prior to 2002 as well as the 2009 and
+2003 EEG can be considered, but the records in the Temple database appear to have been normal studies.
+
+
+
