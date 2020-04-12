@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import pandas as pd
 
 class EEGDataset(Dataset):
-    def __init__(self, pkl_file):
+    def __init__(self, pkl_file, ixtoword=None, wordtoix=None):
         """BY PEIYAO: Load and prepare data for NN
         Args:
         pkl_file: [(eeg, report), ...], word_bag, frequency = pd.read_pickle(pkl_file)
@@ -18,23 +18,27 @@ class EEGDataset(Dataset):
         self.THRESHOLD = 2
         self.data, self.word_bag, self.freq = pd.read_pickle(pkl_file)
         self.eeg_epoch_len = self.freq * 60
-        self.textual_ids, self.max_len_t, self.ixtoword, self.wordtoix, self.max_len = self.build_dict()
+        self.textual_ids, self.max_len_t, self.ixtoword, self.wordtoix, self.max_len = self.build_dict(ixtoword, wordtoix)
         self.vocab_size = len(self.ixtoword) + 2 # 1 for start-token, 0 for padding
 
-    def build_dict(self):
-        ixtoword = {2:'<end>', 3:'<sep>', 4:'<punc>', 5:'<unk>'} # 1 for start-token, 0 for padding
-        wordtoix = {'<end>':2, '<sep>':3, '<punc>':4, '<unk>':5}
+    def build_dict(self, itw, wti):
         textual_ids = []
         max_len_t = 0
         max_len = 0
 
-        idx = max(ixtoword.keys()) + 1
-        for word, freq in self.word_bag.items():
-            if word not in wordtoix:
-                if freq >= self.THRESHOLD:
-                    ixtoword[idx] = word
-                    wordtoix[word] = idx
-                    idx += 1
+        if wti == None:
+            ixtoword = {2:'<end>', 3:'<sep>', 4:'<punc>', 5:'<unk>'} # 1 for start-token, 0 for padding
+            wordtoix = {'<end>':2, '<sep>':3, '<punc>':4, '<unk>':5}
+            idx = max(ixtoword.keys()) + 1
+            for word, freq in self.word_bag.items():
+                if word not in wordtoix:
+                    if freq >= self.THRESHOLD:
+                        ixtoword[idx] = word
+                        wordtoix[word] = idx
+                        idx += 1
+        else:
+            ixtoword = itw
+            wordtoix = wti
 
         for eeg, report in self.data:
             length_t = len(report)
