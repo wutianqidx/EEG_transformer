@@ -68,7 +68,7 @@ def run_training(args, dataset, train_loader, val_loader):
     #model.train()
     train_metrics = []
     val_metrics = [1000,1000]
-    val_epoch = 0 
+    val_epoch = 0
 
     for epoch in range(args.epochs):
         model.train()
@@ -102,10 +102,10 @@ def run_training(args, dataset, train_loader, val_loader):
             #print('Epoch {}:'.format(args.epochs))
 
 	    # Start Validation
-            model.eval() 
+            model.eval()
             val_epoch_metrics = []
             for batch_ndx, (input, target_i, target, length, length_t) in enumerate(val_loader):
-                output, padded_target = model(input, target_i, length, length_t, args.device)
+                output, padded_target = model(input, target_i, length, length_t, args.device, train = False)
                 loss = model.loss_func(output, padded_target, length_t)
                 val_epoch_metrics.append(loss.item())
 
@@ -131,7 +131,7 @@ def main(args):
     print("train_dataset len:", len(train_dataset))
     print("val_dataset len:", len(val_dataset))
     print('Epoch: ', args.epochs)
-    print('batch_size', args.batch_size)
+    print('batch_size:', args.batch_size)
     #print(dataset.max_len_t,dataset.max_len,dataset.vocab_size)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=collate_wrapper)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=collate_wrapper)

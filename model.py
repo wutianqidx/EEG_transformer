@@ -31,13 +31,12 @@ class EEGtoReport(nn.Module):
     def forward(self, input, target, length, length_t, device, train=True):
         eeg_embedding = self.eeg_encoder(input.to(device))
         eeg_embedding, src_padding_mask = self.eeg_pos_encoder(eeg_embedding, length)
+        tgt_mask = generate_square_subsequent_mask(self.report_epoch_max)
+        target, tgt_padding_mask = pad_target(target, self.report_epoch_max)
 
         if train:
-            target, tgt_padding_mask = pad_target(target, self.report_epoch_max)
-            tgt_mask = generate_square_subsequent_mask(self.report_epoch_max)
             report_embedding = self.embedding(target.to(device))
             report_embedding = self.report_pos_encoder(report_embedding, length_t)
-
             word_embedding = self.eeg_transformer(eeg_embedding.to(device), report_embedding.to(device),
                                                   tgt_mask = tgt_mask.to(device),
                                                   src_key_padding_mask=src_padding_mask.to(device),
@@ -57,6 +56,7 @@ class EEGtoReport(nn.Module):
             word_logits_argmax: words idx with size(T_real) just like target before padding
             """
             target, tgt_padding_mask = pad_target(target, self.report_epoch_max)
+            '''
             report_embedding = self.embedding(target)
             report_embedding = self.report_pos_encoder(report_embedding, length_t)
 
@@ -64,9 +64,28 @@ class EEGtoReport(nn.Module):
                                                   src_key_padding_mask=src_padding_mask,
                                                   tgt_key_padding_mask=tgt_padding_mask,
                                                   memory_key_padding_mask=src_padding_mask)
-            word_logits = self.word_net(word_embedding)
+            '''
+            memory = self.eeg_transformer.encoder(eeg_embedding.to(device),
+                                                  src_key_padding_mask=src_padding_mask.to(device))
+            batch_size = len(length)
+            output_tokens = torch.zeros(batch_size, self.report_epoch_max, dtype=int)
+            output_tokens[:, 0] = 1
+            word_logits = torch.zeros(self.report_epoch_max, batch_size, self.vocab_size)
+            for k in range(batch_size):
+                curr_output = output_tokens[k]
+                for i in range(1, self.report_epoch_max):
+                    temp_embedding = self.embedding(curr_output).to(device)
+                    temp_embedding = self.eeg_transformer.decoder(temp_embedding.unsqueeze(1), memory[:, k, :],
+                                                                  tgt_mask=tgt_mask.to(device),
+                                                                  memory_key_padding_mask=src_padding_mask[k].unsqueeze(0).to(device))
+                    temp_logits = self.word_net(temp_embedding[i]).squeeze()
+                    word_logits[i, k, :] = temp_logits
+                    curr_output[i] = temp_logits.argmax(dim=-1)
 
+                    if curr_output[i] == 2:
+                        break
         return word_logits, target.to(device)
+
 
     def loss_func(self, output, padded_target, length_t):
         output = pack_padded_sequence(output, length_t, enforce_sorted=False).data
@@ -119,8 +138,8 @@ class EEGEncoder(nn.Module):
 
     def __init__(self, emb_dim = 512):
         super().__init__()
-        #self.conv1 = nn.Conv1d(18, 32, 5)
-        self.conv1 = nn.Conv1d(4, 32, 5)
+        self.conv1 = nn.Conv1d(18, 32, 5)
+        #self.conv1 = nn.Conv1d(4, 32, 5)
         self.pool1 = nn.MaxPool1d(23)
         self.batch1 = nn.BatchNorm1d(32)
         #self.dropout1 = nn.Dropout(0.15)
