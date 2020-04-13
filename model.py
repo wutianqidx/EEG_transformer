@@ -68,9 +68,9 @@ class EEGtoReport(nn.Module):
 
         return word_logits, target
 
-    def loss_func(self, output, target, length_t):
+    def loss_func(self, output, padded_target, length_t):
         output = pack_padded_sequence(output, length_t, enforce_sorted=False).data
-        target = pack_padded_sequence(target.permute(1, 0), length_t, enforce_sorted=False).data
+        target = pack_padded_sequence(padded_target.permute(1, 0), length_t, enforce_sorted=False).data
         #loss = F.cross_entropy(output.view(-1, self.vocab_size), target.view(-1))
         criterion = nn.CrossEntropyLoss()
         loss = criterion(output.view(-1, self.vocab_size), target.view(-1))

@@ -27,7 +27,7 @@ class EEGDataset(Dataset):
         max_len = 0
 
         if wti == None:
-            ixtoword = {2:'<end>', 3:'<sep>', 4:'<punc>', 5:'<unk>'} # 1 for start-token, 0 for padding
+            ixtoword = {1:'<start>', 2:'<end>', 3:'<sep>', 4:'<punc>', 5:'<unk>'} # 1 for start-token, 0 for padding
             wordtoix = {'<end>':2, '<sep>':3, '<punc>':4, '<unk>':5}
             idx = max(ixtoword.keys()) + 1
             for word, freq in self.word_bag.items():

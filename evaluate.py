@@ -52,22 +52,29 @@ def run_evaluation(args, checkpoint, dataset, train_loader):
     with torch.no_grad():
         metrics = defaultdict(list)
         for idx, (input, target_i, target, length, length_t) in enumerate(train_loader):
-            output = model(input, target_i, length, length_t, train=False)
-            output = pack_padded_sequence(output, length_t, enforce_sorted=False).data.argmax(dim=1) # temporary
-            target = pack_padded_sequence(target, length_t, enforce_sorted=False).data.view(-1)
+            # output = model(input, target_i, length, length_t, train=False)
+            # output = pack_padded_sequence(output, length_t, enforce_sorted=False).data.argmax(dim=1) # temporary
+            # target = pack_padded_sequence(target, length_t, enforce_sorted=False).data.view(-1)
+
+            output, padded_target = model(input, target_i, length, length_t, train=False)
+            output = pack_padded_sequence(output, length_t, enforce_sorted=False).data.argmax(dim=1)
+            target = pack_padded_sequence(padded_target.permute(1, 0), length_t, enforce_sorted=False).data
 
             output = " ".join([ dataset.ixtoword[int(i)] for i in output])
-            output.replace('<sep>','|')
-            output.replace('<punc>', ',')
-            output.replace('<end>','')
-            output.replace('<unk>','unknown')#output idx to string
+            output = output.replace('<sep>', '|')\
+                .replace('<punc>', ',')\
+                .replace('<end>','')\
+                .replace('<unk>','unknown')  # output idx to string
 
             target = " ".join([ dataset.ixtoword[int(i)] for i in target])
-            target.replace('<sep>','|')
-            target.replace('<punc>', ',')
-            target.replace('<end>','')
-            target.replace('<unk>','unknown')#target idx to string
+            target = target.replace('<sep>', '|')\
+                .replace('<start>', '')\
+                .replace('<punc>', ',')\
+                .replace('<end>', '')\
+                .replace('<unk>', 'unknown')  # target idx to string
 
+            # print('output:', output)
+            # print('target:', target)
 
             meteor = meteor_func(output, target)
             #cider = cider_func(output, target)
@@ -156,7 +163,7 @@ def bleu_4_func(output, target):
 
 def main(args):
     # works on nltk version 3.4.5, python 3.5
-    nltk.download('wordnet')
+    # nltk.download('wordnet')
     tic = time.time()
     dataset = EEGDataset(args.pkl)
     print("dataset len:", len(dataset))

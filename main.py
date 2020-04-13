@@ -14,7 +14,7 @@ from model import EEGtoReport # , loss_func
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=1000, help='Number of epochs for training')
+    parser.add_argument('--epochs', type=int, default=450, help='Number of epochs for training')
     parser.add_argument('--batch_size', type=int, default=3, help="Batch size (default=32)")
     parser.add_argument('--run', default='', help='Continue training on runX. Eg. --run=run1')
     args = parser.parse_args()
@@ -94,7 +94,7 @@ def run_training(args, dataset, train_loader):
             'dataset': dataset_dict,
             'args': vars(args)
             }, checkpoint_path)
-            print('Epoch {}:'.format(args.epochs))
+            #print('Epoch {}:'.format(args.epochs))
             print('epochs={},batch_size={},run={},lr={} loss:{}'.format(
                 epoch_start+epoch+1,args.batch_size,args.run,args.learning_rate, metrics[epoch]))
 
@@ -104,6 +104,7 @@ def main(args):
     tic = time.time()
     dataset = EEGDataset("dataset/eeg_text_train.pkl")
     print("dataset len:", len(dataset))
+    print('Epoch: ', args.epochs)
     #print(dataset.max_len_t,dataset.max_len,dataset.vocab_size)
     train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=collate_wrapper)
     run_training(args, dataset, train_loader)
