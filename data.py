@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 import pandas as pd
+import joblib
 
 class EEGDataset(Dataset):
     def __init__(self, pkl_file, ixtoword=None, wordtoix=None):
@@ -16,7 +17,8 @@ class EEGDataset(Dataset):
             frequency: n Hz which means n*60 samples/min
         """
         self.THRESHOLD = 1
-        self.data, self.word_bag, self.freq = pd.read_pickle(pkl_file)
+        #self.data, self.word_bag, self.freq = pd.read_pickle(pkl_file)
+        self.data, self.word_bag, self.freq = joblib.load(pkl_file)
         self.eeg_epoch_len = self.freq * 60
         self.textual_ids, self.max_len_t, self.ixtoword, self.wordtoix, self.max_len = self.build_dict(ixtoword, wordtoix)
         self.vocab_size = len(self.ixtoword) + 2 # 1 for start-token, 0 for padding

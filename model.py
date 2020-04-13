@@ -28,21 +28,21 @@ class EEGtoReport(nn.Module):
             nn.Linear(emb_dim, vocab_size)
         )
 
-    def forward(self, input, target, length, length_t, train=True):
-        eeg_embedding = self.eeg_encoder(input)
+    def forward(self, input, target, length, length_t, device, train=True):
+        eeg_embedding = self.eeg_encoder(input.to(device))
         eeg_embedding, src_padding_mask = self.eeg_pos_encoder(eeg_embedding, length)
 
         if train:
             target, tgt_padding_mask = pad_target(target, self.report_epoch_max)
             tgt_mask = generate_square_subsequent_mask(self.report_epoch_max)
-            report_embedding = self.embedding(target)
+            report_embedding = self.embedding(target.to(device))
             report_embedding = self.report_pos_encoder(report_embedding, length_t)
 
-            word_embedding = self.eeg_transformer(eeg_embedding, report_embedding,
-                                                  tgt_mask = tgt_mask,
-                                                  src_key_padding_mask=src_padding_mask,
-                                                  tgt_key_padding_mask=tgt_padding_mask,
-                                                  memory_key_padding_mask=src_padding_mask)
+            word_embedding = self.eeg_transformer(eeg_embedding.to(device), report_embedding.to(device),
+                                                  tgt_mask = tgt_mask.to(device),
+                                                  src_key_padding_mask=src_padding_mask.to(device),
+                                                  tgt_key_padding_mask=tgt_padding_mask.to(device),
+                                                  memory_key_padding_mask=src_padding_mask.to(device))
             word_logits = self.word_net(word_embedding)
             # print(word_embedding.size())
             # print(word_logits.size())
@@ -66,7 +66,7 @@ class EEGtoReport(nn.Module):
                                                   memory_key_padding_mask=src_padding_mask)
             word_logits = self.word_net(word_embedding)
 
-        return word_logits, target
+        return word_logits, target.to(device)
 
     def loss_func(self, output, padded_target, length_t):
         output = pack_padded_sequence(output, length_t, enforce_sorted=False).data
@@ -119,7 +119,8 @@ class EEGEncoder(nn.Module):
 
     def __init__(self, emb_dim = 512):
         super().__init__()
-        self.conv1 = nn.Conv1d(18, 32, 5)
+        #self.conv1 = nn.Conv1d(18, 32, 5)
+        self.conv1 = nn.Conv1d(4, 32, 5)
         self.pool1 = nn.MaxPool1d(23)
         self.batch1 = nn.BatchNorm1d(32)
         #self.dropout1 = nn.Dropout(0.15)
