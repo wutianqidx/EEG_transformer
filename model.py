@@ -21,7 +21,7 @@ class EEGtoReport(nn.Module):
         self.report_pos_encoder = PositionalEncoding(emb_dim=emb_dim_t, input_type='report')
         # transformer
         self.eeg_transformer = nn.Transformer(d_model=emb_dim, nhead=4, num_encoder_layers=3,
-                                              num_decoder_layers=3, dim_feedforward=1024, dropout=0)
+                                              num_decoder_layers=3, dim_feedforward=1024, dropout=0.15)
         self.word_net = nn.Sequential(
             nn.Linear(emb_dim, emb_dim),
             nn.Tanh(),
@@ -68,23 +68,19 @@ class EEGtoReport(nn.Module):
             memory = self.eeg_transformer.encoder(eeg_embedding.to(device),
                                                   src_key_padding_mask=src_padding_mask.to(device))
             batch_size = len(length)
-            output_tokens = torch.zeros(batch_size, self.report_epoch_max, dtype=int)
+            output_tokens = torch.zeros(batch_size, self.report_epoch_max, dtype=int).to(device)
             output_tokens[:, 0] = 1
             word_logits = torch.zeros(self.report_epoch_max, batch_size, self.vocab_size)
-            for k in range(batch_size):
-                curr_output = output_tokens[k]
-                for i in range(1, self.report_epoch_max):
-                    temp_embedding = self.embedding(curr_output).to(device)
-                    temp_embedding = self.eeg_transformer.decoder(temp_embedding.unsqueeze(1), memory[:, k, :],
-                                                                  tgt_mask=tgt_mask.to(device),
-                                                                  memory_key_padding_mask=src_padding_mask[k].unsqueeze(0).to(device))
-                    temp_logits = self.word_net(temp_embedding[i]).squeeze()
-                    word_logits[i, k, :] = temp_logits
-                    curr_output[i] = temp_logits.argmax(dim=-1)
+            for i in range(1, self.report_epoch_max):
+                temp_embedding = self.embedding(output_tokens).permute(1,0,2)
+                temp_embedding = self.eeg_transformer.decoder(temp_embedding, memory,
+                                                              tgt_mask=tgt_mask.to(device),
+                                                              memory_key_padding_mask=src_padding_mask.to(device))
+                temp_logits = self.word_net(temp_embedding[i])
+                word_logits[i,:,:] = temp_logits
+                output_tokens[:, i] = temp_logits.argmax(dim=-1)
 
-                    if curr_output[i] == 2:
-                        break
-        return word_logits, target.to(device)
+        return word_logits.to(device), target.to(device)
 
 
     def loss_func(self, output, padded_target, length_t):
@@ -138,8 +134,8 @@ class EEGEncoder(nn.Module):
 
     def __init__(self, emb_dim = 512):
         super().__init__()
-        self.conv1 = nn.Conv1d(18, 32, 5)
-        #self.conv1 = nn.Conv1d(4, 32, 5)
+        #self.conv1 = nn.Conv1d(18, 32, 5)
+        self.conv1 = nn.Conv1d(4, 32, 5)
         self.pool1 = nn.MaxPool1d(23)
         self.batch1 = nn.BatchNorm1d(32)
         #self.dropout1 = nn.Dropout(0.15)

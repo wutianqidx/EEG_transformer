@@ -15,12 +15,12 @@ from model import EEGtoReport # , loss_func
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs for training')
-    parser.add_argument('--batch_size', type=int, default=3, help="Batch size (default=32)")
+    parser.add_argument('--batch_size', type=int, default=4, help="Batch size (default=32)")
     parser.add_argument('--run', default='', help='Continue training on runX. Eg. --run=run1')
     args = parser.parse_args()
     args.base_output = "checkpoint/"
     args.checkpoint = "eeg_text_checkpoint"
-    args.eval_every = 5
+    args.eval_every = 2
     args.learning_rate = 0.0001
 
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -105,7 +105,10 @@ def run_training(args, dataset, train_loader, val_loader):
             model.eval()
             val_epoch_metrics = []
             for batch_ndx, (input, target_i, target, length, length_t) in enumerate(val_loader):
-                output, padded_target = model(input, target_i, length, length_t, args.device, train = False)
+                if batch_ndx == 3:
+                    break
+                with torch.no_grad():
+                    output, padded_target = model(input, target_i, length, length_t, args.device, train = False)
                 loss = model.loss_func(output, padded_target, length_t)
                 val_epoch_metrics.append(loss.item())
 
@@ -121,8 +124,8 @@ def run_training(args, dataset, train_loader, val_loader):
             #print(torch.argmax(output,dim=2).view(-1), padded_target)
 
         # break if starts overfitting with patience 2
-        if val_metrics[-1] > val_metrics[-2] and val_metrics[-1] > val_metrics[-3]:
-            break
+        # if val_metrics[-1] > val_metrics[-2] and val_metrics[-1] > val_metrics[-3]:
+        #    break
 
 def main(args):
     tic = time.time()

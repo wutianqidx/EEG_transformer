@@ -16,9 +16,9 @@ class EEGDataset(Dataset):
             word_bag: {word: frequency}
             frequency: n Hz which means n*60 samples/min
         """
-        self.THRESHOLD = 1
-        self.data, self.word_bag, self.freq = pd.read_pickle(pkl_file)
-        #self.data, self.word_bag, self.freq = joblib.load(pkl_file)
+        self.THRESHOLD = 2
+        #self.data, self.word_bag, self.freq = pd.read_pickle(pkl_file)
+        self.data, self.word_bag, self.freq = joblib.load(pkl_file)
         self.eeg_epoch_len = self.freq * 60
         self.textual_ids, self.max_len_t, self.ixtoword, self.wordtoix, self.max_len = self.build_dict(ixtoword, wordtoix)
         self.vocab_size = len(self.ixtoword) + 2 # 1 for start-token, 0 for padding
@@ -51,8 +51,8 @@ class EEGDataset(Dataset):
                 max_len = length
             temp = []
             for word in report:
-                if word == '<punc>':
-                    continue
+                #if word == '<punc>':
+                #    continue
                 if word in wordtoix:
                     temp.append(wordtoix[word])
                 else:
