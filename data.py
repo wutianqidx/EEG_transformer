@@ -17,6 +17,7 @@ class EEGDataset(Dataset):
             frequency: n Hz which means n*60 samples/min
         """
         self.THRESHOLD = 2
+        self.eeg_thresh, self.report_thresh = 150, 100
         #self.data, self.word_bag, self.freq = pd.read_pickle(pkl_file)
         self.data, self.word_bag, self.freq = joblib.load(pkl_file)
         self.eeg_epoch_len = self.freq * 60
@@ -42,11 +43,16 @@ class EEGDataset(Dataset):
             ixtoword = itw
             wordtoix = wti
 
+        #eeg_length = []
+        #report_length = []
+
         for eeg, report in self.data:
             length_t = len(report)
+            #report_length.append(length_t)
             if length_t > max_len_t:
                 max_len_t = length_t
             length = eeg.shape[1]//self.eeg_epoch_len
+            #eeg_length.append(length)
             if length > max_len:
                 max_len = length
             temp = []
@@ -58,11 +64,17 @@ class EEGDataset(Dataset):
                 else:
                     temp.append(wordtoix['<unk>'])
             textual_ids.append(temp)
+        #print('eeg:', np.quantile(eeg_length,0.98))
+        #print('report:', np.quantile(report_length,0.98))
+        #print('last_eeg:', sorted(eeg_length)[-20:])
+        #print('last_report:', sorted(report_length)[-20:])
+        max_len_t = self.report_thresh
+        max_len = self.eeg_thresh
         return textual_ids, max_len_t, ixtoword, wordtoix, max_len
 
     def get_text(self, idx):
-        # text_i = torch.tensor([1]+self.textual_ids[idx][:-1])
-        text_i = torch.tensor([1] + self.textual_ids[idx])
+        text_i = torch.tensor([1]+self.textual_ids[idx][:-1])
+        #text_i = torch.tensor([1] + self.textual_ids[idx])
         text = F.pad(torch.tensor(self.textual_ids[idx]), (0, self.max_len_t-len(text_i))).view(-1, 1)
         return text_i, text
 
@@ -95,8 +107,9 @@ class EEGDataset(Dataset):
         Return:
         torch.tensor(*, 18, frequency*60), torch.tensor([[0, 1, 0, ...], ...]), len(torch.tensor(*, 18, frequency*60))
         """
-        eeg = self.get_eeg(idx)
+        eeg = self.get_eeg(idx)[:self.eeg_thresh]
         report_i, report = self.get_text(idx)
+        report_i = report_i[:self.report_thresh]
         return eeg, report_i, report, len(eeg), len(report_i)
 
 def collate_wrapper(batch):

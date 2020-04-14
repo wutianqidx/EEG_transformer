@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pack_padded_sequence
 
 from data import EEGDataset, collate_wrapper
 from model import EEGtoReport # , loss_func
@@ -15,7 +16,7 @@ from model import EEGtoReport # , loss_func
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs for training')
-    parser.add_argument('--batch_size', type=int, default=4, help="Batch size (default=32)")
+    parser.add_argument('--batch_size', type=int, default=32, help="Batch size (default=32)")
     parser.add_argument('--run', default='', help='Continue training on runX. Eg. --run=run1')
     args = parser.parse_args()
     args.base_output = "checkpoint/"
@@ -72,6 +73,7 @@ def run_training(args, dataset, train_loader, val_loader):
 
     for epoch in range(args.epochs):
         model.train()
+        start_time = time.time()
         train_epoch_metrics = []
 
         for batch_ndx, (input, target_i, target, length, length_t) in enumerate(train_loader):
@@ -105,10 +107,24 @@ def run_training(args, dataset, train_loader, val_loader):
             model.eval()
             val_epoch_metrics = []
             for batch_ndx, (input, target_i, target, length, length_t) in enumerate(val_loader):
-                if batch_ndx == 3:
-                    break
                 with torch.no_grad():
                     output, padded_target = model(input, target_i, length, length_t, args.device, train = False)
+                    #output_pp = pack_padded_sequence(output, length_t, enforce_sorted=False).data.argmax(dim=1)
+                    #target_pp = pack_padded_sequence(padded_target.permute(1, 0), length_t, enforce_sorted=False).data
+                    output_token = output.argmax(dim=-1).permute(1, 0)
+                    for i in range(5):
+                        out_word, target_word = [], []
+                        for j in range(101):
+                            out_id = int(output_token[i, j])
+                            target_id = int(padded_target[i, j])
+                            if out_id != 0:
+                                out_word.append(dataset.ixtoword[out_id])
+                            if target_id != 0:
+                                target_word.append(dataset.ixtoword[target_id])
+                        print("-------------------------------")
+                        print("TARGET:",  " ".join(target_word))
+                        print("PREDICT:", " ".join(out_word))
+
                 loss = model.loss_func(output, padded_target, length_t)
                 val_epoch_metrics.append(loss.item())
 
@@ -117,22 +133,24 @@ def run_training(args, dataset, train_loader, val_loader):
             #  print(train_metrics[epoch])
             # print(val_metrics[val_epoch+2])
 
-            print('epochs={},run={},lr={} train_loss:{}, val_loss:{}'.format(
-                epoch_start+epoch+1,args.run,args.learning_rate, train_metrics[epoch], val_metrics[val_epoch+2]))
+            print('epochs={},run={},lr={} train_loss:{}, val_loss:{}, time:{}'.format(
+                epoch_start+epoch+1,args.run,args.learning_rate, train_metrics[epoch], val_metrics[val_epoch+2], time.time()-start_time))
 
             val_epoch = val_epoch+1
             #print(torch.argmax(output,dim=2).view(-1), padded_target)
 
         # break if starts overfitting with patience 2
         # if val_metrics[-1] > val_metrics[-2] and val_metrics[-1] > val_metrics[-3]:
-        #    break
+        #   break
 
 def main(args):
     tic = time.time()
     train_dataset = EEGDataset("dataset/eeg_text_train.pkl")
-    val_dataset = EEGDataset("dataset/eeg_text_val.pkl")
+    val_dataset = EEGDataset("dataset/eeg_text_val.pkl",ixtoword=train_dataset.ixtoword, wordtoix=train_dataset.wordtoix)
     print("train_dataset len:", len(train_dataset))
     print("val_dataset len:", len(val_dataset))
+    #print('eeg_max_len:', train_dataset.max_len)
+    #print('report_max_len:', train_dataset.max_len_t)
     print('Epoch: ', args.epochs)
     print('batch_size:', args.batch_size)
     #print(dataset.max_len_t,dataset.max_len,dataset.vocab_size)
