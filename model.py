@@ -21,7 +21,7 @@ class EEGtoReport(nn.Module):
         self.report_pos_encoder = PositionalEncoding(emb_dim=emb_dim_t, input_type='report')
         # transformer
         self.eeg_transformer = nn.Transformer(d_model=emb_dim, nhead=4, num_encoder_layers=3,
-                                              num_decoder_layers=3, dim_feedforward=1024, dropout=0.15)
+                                              num_decoder_layers=3, dim_feedforward=512, dropout=0.1)
         self.word_net = nn.Sequential(
             nn.Linear(emb_dim, emb_dim),
             nn.Tanh(),
@@ -71,6 +71,7 @@ class EEGtoReport(nn.Module):
             output_tokens = torch.zeros(batch_size, self.report_epoch_max, dtype=int).to(device)
             output_tokens[:, 0] = 1
             word_logits = torch.zeros(self.report_epoch_max, batch_size, self.vocab_size)
+            word_logits[0, :, 1] = torch.ones(batch_size)
             for i in range(1, self.report_epoch_max):
                 temp_embedding = self.embedding(output_tokens)
                 temp_embedding = self.report_pos_encoder(temp_embedding, torch.tensor([i]*batch_size))
@@ -139,15 +140,15 @@ class EEGEncoder(nn.Module):
         self.conv1 = nn.Conv1d(4, 32, 5)
         self.pool1 = nn.MaxPool1d(14)
         self.batch1 = nn.BatchNorm1d(32)
-        #self.dropout1 = nn.Dropout(0.15)
+        self.dropout1 = nn.Dropout(0.15)
         self.conv2 = nn.Conv1d(32, 64, 5)
         self.pool2 = nn.MaxPool1d(3)
         self.batch2 = nn.BatchNorm1d(64)
-        #self.dropout2 = nn.Dropout(0.15)
+        self.dropout2 = nn.Dropout(0.15)
         self.conv3 = nn.Conv1d(64, 256, 5)
         self.pool3 = nn.MaxPool1d(6)
         self.batch3 = nn.BatchNorm1d(256)
-        #self.dropout3 = nn.Dropout(0.15)
+        self.dropout3 = nn.Dropout(0.15)
         self.conv4 = nn.Conv1d(256, emb_dim, 5)
         self.pool4 = nn.MaxPool1d(7)
         self.batch4 = nn.BatchNorm1d(emb_dim)

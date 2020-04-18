@@ -73,8 +73,8 @@ class EEGDataset(Dataset):
         return textual_ids, max_len_t, ixtoword, wordtoix, max_len
 
     def get_text(self, idx):
-        text_i = torch.tensor([1]+self.textual_ids[idx][:-1])
-        #text_i = torch.tensor([1] + self.textual_ids[idx])
+        #text_i = torch.tensor([1]+self.textual_ids[idx][:-1])
+        text_i = torch.tensor([1] + self.textual_ids[idx])
         text = F.pad(torch.tensor(self.textual_ids[idx]), (0, self.max_len_t-len(text_i))).view(-1, 1)
         return text_i, text
 

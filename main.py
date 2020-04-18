@@ -112,7 +112,7 @@ def run_training(args, dataset, train_loader, val_loader):
                     #output_pp = pack_padded_sequence(output, length_t, enforce_sorted=False).data.argmax(dim=1)
                     #target_pp = pack_padded_sequence(padded_target.permute(1, 0), length_t, enforce_sorted=False).data
                     output_token = output.argmax(dim=-1).permute(1, 0)
-                    for i in range(5):
+                    for i in range(1):
                         out_word, target_word = [], []
                         for j in range(101):
                             out_id = int(output_token[i, j])
@@ -146,7 +146,7 @@ def run_training(args, dataset, train_loader, val_loader):
 def main(args):
     tic = time.time()
     train_dataset = EEGDataset("dataset/eeg_text_train.pkl")
-    val_dataset = EEGDataset("dataset/eeg_text_val.pkl",ixtoword=train_dataset.ixtoword, wordtoix=train_dataset.wordtoix)
+    val_dataset = EEGDataset("dataset/eeg_text_test.pkl",ixtoword=train_dataset.ixtoword, wordtoix=train_dataset.wordtoix)
     print("train_dataset len:", len(train_dataset))
     print("val_dataset len:", len(val_dataset))
     #print('eeg_max_len:', train_dataset.max_len)
